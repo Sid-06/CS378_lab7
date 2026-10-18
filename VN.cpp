@@ -52,6 +52,7 @@ int main(int argc, char** argv){
 		memcpy(&neigh_port, &rec_buffer[11*i+5], 2);
 		memcpy(&cost, &rec_buffer[11*i+7], 4);
 		neigh_port = ntohs(neigh_port);
+		cost = ntohl(cost);
 		currInfo[neigh] = cost;
 		cout << neigh << "=" << cost << " ";
 	}

@@ -7,16 +7,9 @@ using namespace std;
 
 struct VirtualNodes{
 	in_addr_t ip;
-	int port;
+	uint16_t port;
 	int fd;
 };
-
-struct LinkState{
-	char NodeAlphabet;
-	in_addr_t ip;
-	int udp_port;
-	int cost;
-}
 
 int main(){
 
@@ -41,21 +34,30 @@ int main(){
 		}
 		costs.push_back(row);
 	}
-	int virtualNum = costs[0].size() + 1; // N
+	int N = costs[0].size() + 1;
+
+	vector<vector<int>> fullCosts(N, vector<int>(N, 0));
+	for (int i=0;i<N;i++) {
+		for (int j=i+1;j<N;j++) {
+			int c = costs[i][j-i- 1];
+			fullCosts[i][j] = c;
+			fullCosts[j][i] = c;
+		}
+	}
 	
 	//listen for cnxn form VNs on 5000 port
 	sockaddr_in addr{};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(5000);
-	inet_pton(AF_INET, INADDR_ANY, &addr.sin_addr);
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	int fd = socket(AF_INET,SOCK_STREAM,0);
 	int b = bind(fd, (sockaddr*)&addr, sizeof(addr));
-	listen(fd, virtualNum);
+	listen(fd, N);
 	
 	
 	vector<VirtualNodes> nodes;
-	while(nodes.size() < virtualNum){
+	while(nodes.size() < N){
 		int client_fd = accept(fd, NULL, NULL);
 		if(client_fd < 0){
 			cerr << "connection error" << endl;
@@ -72,19 +74,37 @@ int main(){
 		nodes.push_back(vn);
  	}
 
-	for(int i=0;i<VirtualNodes;i++){
+	for(int i=0;i<N;i++){
 		sockaddr_in vn;
 		vn.sin_family = AF_INET;
 		vn.sin_port = htons(nodes[i].port);
 		vn.sin_addr.s_addr = nodes[i].ip;
-		string msg;
-		for(int j=0;j<costs[i].size();j++){
-			if(costs[i][j] < 0) continue;
-			LinkState ls = {('A'+i), nodes[i].ip, htons(nodes[i].port), cost[i][j]};
-			memcpy(msg + msg.size(), &ls, 11);
+		vector<char> msg;
+		char base = 'A' + i;
+		in_addr_t ip = nodes[i].ip;
+		uint16_t port = vn.sin_port;
+		int cost = htonl(0);
+		msg.push_back(base);
+		auto append = [&](const void* data, size_t size){
+			const char* p = static_cast<const char*>(data);
+			msg.insert(msg.end(), p, p + size);
+		};
+		append(&ip, 4);
+		append(&port, 2);
+		append(&cost, 4);
+		for(int j=0;j<N;j++){
+			if(j==i || fullCosts[i][j] < 0) continue;
+			char alphab = 'A' + j;
+			in_addr_t ip = nodes[j].ip;
+			uint16_t port = htons(nodes[j].port);
+			int cost = htonl(fullCosts[i][j]);
+			msg.push_back(alphab);
+			append(&ip, 4);
+			append(&port, 2);
+			append(&cost, 4);
 		}
-		send(nodes[i].fd, msg.c_str(), msg.size(),0);
+		msg.push_back('\0');
+		send(nodes[i].fd, msg.data(), msg.size(),0);
 	}
-	
 }
 
