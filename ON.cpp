@@ -36,7 +36,7 @@ int main(){
 		costs.push_back(row);
 	}
 	int virtualNum = costs[0].size()+1;
-	
+
 	//listen for cnxn form VNs on 5000 port
 	sockaddr_in addr{};
 	addr.sin_port = htons(5000);
@@ -64,5 +64,9 @@ int main(){
 		vn.fd = client_fd;
 		nodes.push_back(vn);			
  	}
+
+	//link state protocols
+
+	
 }
 
