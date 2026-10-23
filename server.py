@@ -88,10 +88,15 @@ def main():
             ready ,_,_ = select.select([fd] , [] , [] , 1)
             if ready:
                 client_fd,_ = fd.accept()
-                if len(nodes)>=N:
+                if len(nodes)>=26:
                     client_fd.close()
                     continue
-                buffer  = receiveConnect(client_fd)
+                try:
+                    buffer = receiveConnect(client_fd)
+                except OSError as error:
+                    print(f'incomplete CONNECT: {error}', file=sys.stderr)
+                    client_fd.close()
+                    continue
                 vn_ip,port = struct.unpack('!4sH' , buffer)
                 vn = VirtualNodes(vn_ip, port, client_fd)
                 nodes.append(vn)
